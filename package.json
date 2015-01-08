@@ -1,0 +1,29 @@
+{
+  "name": "scramble-mail-repo",
+  "version": "0.0.1",
+  "description": "Scramble.io module to store & index mail",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcposch/scramble"
+  },
+  "keywords": [
+    "scramble",
+    "email",
+    "search",
+    "storage",
+    "database",
+    "sqlite3"
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dcposch/scramble/issues"
+  },
+  "homepage": "https://github.com/dcposch/scramble",
+  "dependencies": {
+    "tmp": "*",
+    "sqlite3": "*"
+  }
+}
