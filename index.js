@@ -26,6 +26,8 @@ module.exports = function(dir) {
   }
 
   this.getMessage = function(messageId, cb){
-    cb(["fake result"]);
+    db.get("select * from Message where scrambleMailId=?", messageId, function(row){
+      console.log(row);
+    });
   }
 };

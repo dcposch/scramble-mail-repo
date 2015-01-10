@@ -3,10 +3,15 @@ var fs = require('fs');
 var ScrambleMailRepo = require('./index.js');
 
 // Create a temporary folder, where we'll build the index
-tmp.dir({unsafeCleanup:true, prefix:'scramble'}, function(err, path){
-  if (err) throw err;
-  demoSaveEmails(path);
-});
+var pathArg = process.argv[2];
+if(pathArg){
+  demoSaveEmails(pathArg);
+} else {
+  tmp.dir({unsafeCleanup:true, prefix:'scramble'}, function(err, path){
+    if (err) throw err;
+    demoSaveEmails(path);
+  });
+}
 
 function demoSaveEmails(path){
   // Make a new repo to populate the empty temp folder
