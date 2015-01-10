@@ -5,7 +5,7 @@
 create table if not exists Message (
   scrambleMailId text not null,
   scrambleThreadId text not null,
-  date text not null, 
+  timestamp text not null, 
   messageId text,
   fromAddress text not null,
   toAddress text not null,
@@ -18,6 +18,8 @@ create table if not exists Message (
 create virtual table if not exists MessageSearch using fts4 (
   scrambleMailId,
   subject,
+  fromAddress,
+  toAddress,
   searchBody
 );
 

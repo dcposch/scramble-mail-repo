@@ -23,7 +23,8 @@
   },
   "homepage": "https://github.com/dcposch/scramble",
   "dependencies": {
-    "tmp": "*",
-    "sqlite3": "*"
+    "tmp-sync": "*",
+    "sqlite3": "*",
+    "mailparser": "*"
   }
 }
