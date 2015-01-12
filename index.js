@@ -62,6 +62,13 @@ module.exports = function(dir) {
           scrambleMailId, scrambleThreadId, timestamp, messageId,
           fromAddress, toAddress, ccAddress, bccAddress, subject, snippet, subCallback);
 
+
+      // Index for full-text search
+      var searchBody = subject + "\n\n" + mailObj.text;
+      db.run("insert into MessageSearch (scrambleMailId, subject, fromAddress, toAddress, searchBody) "+
+          "values (?,?,?,?,?)",
+          scrambleMailId, subject, fromAddress, toAddress, searchBody);
+
       //TODO: PGP decryption
       //TODO: Update Contact
       //TODO: Update MessageSearch
@@ -104,7 +111,13 @@ module.exports = function(dir) {
     if(query === ""){
       cb(null, null);
     } else {
-      db.all("select * from Message where snippet like '%'||?||'%'", query, cb); 
+      db.all("select scrambleMailId from MessageSearch where searchBody match ?", query, function(err, results){
+        if(err) {
+          return cb(err, null);
+        }
+        var mailIds = results.map(function(x) { return x.scrambleMailId; });
+        db.all("select * from Message where scrambleMailId in ('" + mailIds.join("','") + "')", cb);
+      }); 
     }
   }
 
