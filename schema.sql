@@ -35,3 +35,18 @@ create unique index if not exists IxMessageMessageId on Message(messageId);
 create index if not exists IxMessageLabel on MessageLabel(label);
 create index if not exists IxMessageLabelMailID on MessageLabel(scrambleMailId);
 
+create table if not exists Contact (
+  emailAddress text primary key,
+  keybaseName text,
+  pgpKey text
+);
+
+create table if not exists ContactName (
+  emailAddress text,
+  name text,
+  numMessages integer,
+  primary key(emailAddress, name)
+);
+
+create index if not exists IxContactName on ContactName(name);
+

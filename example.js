@@ -28,22 +28,39 @@ function demoSaveEmails(fromDir, toDir){
   // Grab a few example emails and stick them into the repo
   // In each case, the email is the full RFC2822 message
   var files = fs.readdirSync(fromDir);
-  console.log("Indexing %d messages", files.length);
-  var numDone = 0;
-  files.forEach(function(file){
-    // The email consists of headers (From, To, Subject, etc) plus a body
+  console.time("Indexing %d messages", files.length);
+  console.time("Indexing messages");
+
+  // Index emails in parallel
+  var numDone = 0, nextIx = 0;
+  var saveEmail = function(){
+    if(nextIx >= files.length){
+      return;
+    }
+    var file = files[nextIx++];
     var rawEmailStream = fs.createReadStream(fromDir+"/"+file);
-    repo.saveRawEmail(rawEmailStream, function(err){
-      if(err) {
-        console.error("Error saving email", err);
-      }
-      process.stdout.write('.');
-      if(++numDone == files.length){
-        process.stdout.write('\n\n');
-        demoQueryEmails(repo);
-      }
-    });
-  });
+    repo.saveRawEmail(rawEmailStream, onEmailSaved);
+  }
+  // Only process 40 at a time
+  for(var i = 0; i < 40; i++){
+    saveEmail();
+  }
+
+  function onEmailSaved(err) {
+    if(err) {
+      console.error("Error saving email", err);
+    }
+    process.stdout.write('.');
+    if(++numDone == files.length) {
+      process.stdout.write('\n\n');
+      console.timeEnd("Indexing messages");
+      // Finally, we're done building the email index
+      // Next, show how to query it
+      demoQueryEmails(repo);
+    } else {
+      saveEmail();
+    }
+  }
 }
 
 function demoQueryEmails(repo){

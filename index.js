@@ -3,6 +3,7 @@ var stream = require("stream");
 var crypto = require("crypto");
 var sqlite3 = require("sqlite3").verbose();
 var MailParser = require("mailparser").MailParser;
+require("look").start();
 
 module.exports = function(dir) {
   var dbFilename = dir+"/index.sqlite";
@@ -34,7 +35,7 @@ module.exports = function(dir) {
   }
 
   function saveMailObj(mailObj, cb) {
-      var errs = [], numDone = 0, numQueries = 1;
+      var errs = [], numDone = 0, numQueries = 3;
       var subCallback = function(err) {
         if(err) {
           errs.push(err);
@@ -45,7 +46,6 @@ module.exports = function(dir) {
       };
 
       // Insert Message
-      //console.log(mailObj);
       var messageId = mailObj.headers["message-id"] || null;
       var scrambleMailId = messageId || pseudoRandomBase64(40);
       var scrambleThreadId = "dummy-thread-id"; //TODO: threading
@@ -67,12 +67,48 @@ module.exports = function(dir) {
       var searchBody = subject + "\n\n" + mailObj.text;
       db.run("insert into MessageSearch (scrambleMailId, subject, fromAddress, toAddress, searchBody) "+
           "values (?,?,?,?,?)",
-          scrambleMailId, subject, fromAddress, toAddress, searchBody);
+          scrambleMailId, subject, fromAddress, toAddress, searchBody, subCallback);
+
+      // Update Contact
+      var contacts = [mailObj.from, mailObj.to, mailObj.cc, mailObj.bcc].reduce(function(a,b){
+            if(b) return a.concat(b);
+            return a;
+          }, []);
+      saveContacts(contacts, subCallback);
 
       //TODO: PGP decryption
-      //TODO: Update Contact
-      //TODO: Update MessageSearch
       //TODO: Update MessageLabel
+  }
+
+  /**
+   * Takes a list of named email addresses, each {address:..., name:...} 
+   * Makes sure each address exists in the Contact table.
+   * Counts how often each name is used with a given address.
+   */
+  function saveContacts(contacts, cb) {
+      console.log("Saving contacts", contacts);
+      var errs = [], numDone = 0, numQueries = 3*contacts.length;
+      var subCallback = function(err) {
+        if(err) {
+          errs.push(err);
+        }
+        if(++numDone == numQueries) {
+          cb(errs[0] || null);
+        }
+      };
+
+      var stmtC = db.prepare("insert or ignore into Contact (emailAddress) values (?)");
+      var stmtCN = db.prepare("insert or ignore into ContactName (emailAddress, name) values (?,?)");
+      var stmtCNInc = db.prepare("update ContactName set numMessages=numMessages+1 where emailAddress=? and name=?");
+      contacts.forEach(function(contact){
+        var addr = contact.address.toLowerCase();
+        stmtC.run(addr, subCallback);
+        stmtCN.run(addr, contact.name, subCallback);
+        stmtCNInc.run(addr, contact.name, subCallback);
+      });
+      stmtC.finalize();
+      stmtCN.finalize();
+      stmtCNInc.finalize();
   }
 
   /**
@@ -88,14 +124,11 @@ module.exports = function(dir) {
   this.saveRawEmail = function(email, cb) {
     var mailparser = new MailParser();
     mailparser.on("headers", function(err){
-      //console.info("MailParser headers");
     });
     mailparser.on("error", function(err){
-      //console.warn("MailParser error");
       cb(err, null);
     });
     mailparser.on("end", function(mailObj){
-      //console.info("MailParser succeeded");
       saveMailObj(mailObj, cb);
     });
 
@@ -107,11 +140,24 @@ module.exports = function(dir) {
     }
   }
 
-  this.search = function(query, cb){
+  /**
+   * Email full-text search. See README for query syntax.
+   *
+   * The limit and offset args are optional.
+   * The callback takes (err, array of email objs).
+   */
+  this.search = function(query, limit, offset, cb){
+    if(arguments.length == 2){
+      cb = limit;
+      limit = 10;
+      offset = 0;
+    }
     if(query === ""){
       cb(null, null);
     } else {
-      db.all("select scrambleMailId from MessageSearch where searchBody match ?", query, function(err, results){
+      db.all("select scrambleMailId, fromAddress, toAddress, subject, snippet(MessageSearch) as snippet "+
+          "from MessageSearch where searchBody match ? limit ? offset ?", 
+          query, limit, offset, function(err, results){
         if(err) {
           return cb(err, null);
         }

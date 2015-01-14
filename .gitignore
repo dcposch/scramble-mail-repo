@@ -1,3 +1,4 @@
 node_modules/
 *.swp
 .module-cache
+v8.log
