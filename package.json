@@ -26,5 +26,11 @@
     "tmp-sync": "*",
     "sqlite3": "*",
     "mailparser": "*"
+  },
+  "devDependencies": {
+    "semistandard": "*"
+  },
+  "scripts": {
+    "test": "semistandard"
   }
 }
