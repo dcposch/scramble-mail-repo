@@ -1,17 +1,20 @@
 var fs = require('fs');
 var stream = require('stream');
 var crypto = require('crypto');
+var path = require('path');
 var sqlite3 = require('sqlite3').verbose();
 var MailParser = require('mailparser').MailParser;
 
 module.exports = function (dir) {
-  var dbFilename = dir + '/index.sqlite';
+  var dbFilename = path.join(dir, 'index.sqlite');
+  console.log('Opening ' + dbFilename);
   var db = new sqlite3.Database(dbFilename);
   initDatabase();
 
   function initDatabase () {
     // Create any new tables, or create all tables if DB was newly created
-    var schemaSql = fs.readFileSync('schema.sql', {encoding: 'utf8'});
+    var schemaFile = path.join(__dirname, 'schema.sql');
+    var schemaSql = fs.readFileSync(schemaFile, {encoding: 'utf8'});
     // Don't run any other queries until the DB is initialized
     db.serialize(function () {
       db.exec(schemaSql, function (err) {
@@ -154,6 +157,7 @@ module.exports = function (dir) {
       limit = 10;
       offset = 0;
     }
+    console.log('scramble-mail-repo searching \'%s\' offset %d limit %d', query, offset, limit);
     if (query === '') {
       cb(null, null);
     } else {
@@ -164,7 +168,7 @@ module.exports = function (dir) {
           return cb(err, null);
         }
         var mailIds = results.map(function (x) { return x.scrambleMailId; });
-        db.all('select * from Message where scrambleMailId in (\'' + mailIds.join('', '') + '\')', cb);
+        db.all('select * from Message where scrambleMailId in (\'' + mailIds.join('\',\'') + '\')', cb);
       });
     }
   };
