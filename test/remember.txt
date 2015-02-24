@@ -1,0 +1,92 @@
+                                                                                                                                                                                                                                                               
+Delivered-To: dcposch@gmail.com
+Received: by 10.182.37.233 with SMTP id b9cs216383obk;
+        Sat, 5 Nov 2011 09:20:36 -0700 (PDT)
+Received: by 10.42.151.196 with SMTP id f4mr26826568icw.17.1320510033044;
+        Sat, 05 Nov 2011 09:20:33 -0700 (PDT)
+Return-Path: <phipsichat-bounces@mailman.stanford.edu>
+Received: from smtp.stanford.edu (smtp3.Stanford.EDU. [171.67.219.83])
+        by mx.google.com with ESMTPS id jk8si8174094pbc.62.2011.11.05.09.20.31
+        (version=TLSv1/SSLv3 cipher=OTHER);
+        Sat, 05 Nov 2011 09:20:32 -0700 (PDT)
+Received-SPF: pass (google.com: domain of phipsichat-bounces@mailman.stanford.edu designates 171.67.219.83 as permitted sender) client-ip=171.67.219.83;
+Authentication-Results: mx.google.com; spf=pass (google.com: domain of phipsichat-bounces@mailman.stanford.edu designates 171.67.219.83 as permitted sender) smtp.mail=phipsichat-bounces@mailman.stanford.edu; dkim=neutral (body hash did not verify) header.i=@gmail.com
+Received: from mailman.stanford.edu (mailman.Stanford.EDU [171.67.216.245])
+	by smtp.stanford.edu (Postfix) with ESMTP id AE426D8460;
+	Sat,  5 Nov 2011 09:20:30 -0700 (PDT)
+X-Original-To: phipsichat@lists.stanford.edu
+Delivered-To: phipsichat@lists.stanford.edu
+Received: from mailman.stanford.edu (localhost.localdomain [127.0.0.1])
+	by mailman.stanford.edu (Postfix) with SMTP id C8C62200FAD
+	for <phipsichat@lists.stanford.edu>;
+	Sat,  5 Nov 2011 02:00:54 -0700 (PDT)
+Received: from mail-iy0-f182.google.com (mail-iy0-f182.google.com
+	[209.85.210.182]) (using TLSv1 with cipher RC4-SHA (128/128 bits))
+	(No client certificate requested)
+	by mailman.stanford.edu (Postfix) with ESMTPS id 3243A200FA0
+	for <phipsichat@lists.stanford.edu>;
+	Sat,  5 Nov 2011 02:00:54 -0700 (PDT)
+Received: by mail-iy0-f182.google.com with SMTP id z21so6365047iab.27
+	for <phipsichat@lists.stanford.edu>;
+	Sat, 05 Nov 2011 02:00:54 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=gmail.com; s=gamma;
+	h=sender:subject:from:content-type:message-id:date:to
+	:content-transfer-encoding:mime-version:x-mailer;
+	bh=OWmq6FMBNuffseenV93l+xG9Ubrg3cNKZ9pMbKXfmD8=;
+	b=KX87BkHOC4HMl3zvK/tzqFyOjUThB0Nudy3eWJslSDz/s+NdXdRYShiO0yMuikGYlm
+	8YmCv+G1yj+h9zowkwrzoqWkjTejsRCLcv+VdHgNngQxIMlGv8kOqN/tXtf3HL9LFfOD
+	kGnbVPbVhfuxch/c3ak4YJ+QWAXMiHqXPRjQg=
+Received: by 10.42.139.2 with SMTP id e2mr19333178icu.22.1320483653868;
+	Sat, 05 Nov 2011 02:00:53 -0700 (PDT)
+Received: from [10.31.99.115] ([128.12.98.184])
+	by mx.google.com with ESMTPS id lt8sm17046568pbb.0.2011.11.05.02.00.46
+	(version=TLSv1/SSLv3 cipher=OTHER);
+	Sat, 05 Nov 2011 02:00:49 -0700 (PDT)
+From: Redacted <redacted@stanford.edu>
+Content-Type: multipart/mixed;
+	boundary=Apple-Mail-6655BFF0-BB4F-49E0-B23D-65A94727D92C
+Message-Id: <FBE574B7-6F9C-4D5B-BED3-8962A20D61D0@stanford.edu>
+Date: Sat, 5 Nov 2011 02:00:44 -0700
+To: Phi Psi Chat <phipsichat@lists.stanford.edu>
+Content-Transfer-Encoding: 7bit
+Mime-Version: 1.0 (1.0)
+X-Mailer: iPhone Mail (9A334)
+X-Mailman-Approved-At: Sat, 05 Nov 2011 09:20:26 -0700
+Subject: [phipsichat] Remember remember
+X-BeenThere: phipsichat@lists.stanford.edu
+X-Mailman-Version: 2.1.13
+Precedence: list
+List-Id: <phipsichat.lists.stanford.edu>
+List-Unsubscribe: <https://mailman.stanford.edu/mailman/options/phipsichat>,
+	<mailto:phipsichat-request@lists.stanford.edu?subject=unsubscribe>
+List-Archive: <https://mailman.stanford.edu/mailman/private/phipsichat>
+List-Post: <mailto:phipsichat@lists.stanford.edu>
+List-Help: <mailto:phipsichat-request@lists.stanford.edu?subject=help>
+List-Subscribe: <https://mailman.stanford.edu/mailman/listinfo/phipsichat>,
+	<mailto:phipsichat-request@lists.stanford.edu?subject=subscribe>
+Sender: phipsichat-bounces@lists.stanford.edu
+Errors-To: phipsichat-bounces@lists.stanford.edu
+
+
+--Apple-Mail-6655BFF0-BB4F-49E0-B23D-65A94727D92C
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=us-ascii
+
+The fifth of November. Or not.
+
+A.
+
+--Apple-Mail-6655BFF0-BB4F-49E0-B23D-65A94727D92C
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+phipsichat mailing list
+phipsichat@lists.stanford.edu
+https://mailman.stanford.edu/mailman/listinfo/phipsichat
+
+--Apple-Mail-6655BFF0-BB4F-49E0-B23D-65A94727D92C--
+
