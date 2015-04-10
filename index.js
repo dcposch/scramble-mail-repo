@@ -88,7 +88,6 @@ module.exports = function (dir) {
    * Counts how often each name is used with a given address.
    */
   function saveContacts (contacts, cb) {
-    console.log('Saving contacts', contacts)
     var errs = []
     var numDone = 0
     var numQueries = 3 * contacts.length
@@ -127,10 +126,11 @@ module.exports = function (dir) {
    **/
   this.saveRawEmail = function (email, cb) {
     var mailparser = new MailParser()
-    mailparser.on('headers', function (err) {
-      console.error(err)
+    mailparser.on('headers', function (headers) {
+      // TODO: handle headers and body separately?
     })
     mailparser.on('error', function (err) {
+      console.warn('Mail parser error', err)
       cb(err, null)
     })
     mailparser.on('end', function (mailObj) {
