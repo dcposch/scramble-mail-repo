@@ -46,10 +46,10 @@ repo.search("label:\\scramble\\inbox", printResults);
 repo.search("label:\\scramble\\sent", printResults);
 
 // Fetch a given thread
-repo.getThread("herp", printResults);
+repo.getThread("8668a49cad43e2497a979e09069b8045", printResults);
 
 // Fetch a given message
-repo.getMessage("herp", printResults);
+repo.getMessage("49f48c2a38faac6a5abfe1bac4f6b857", printResults);
 ```
 
 

@@ -20,12 +20,16 @@
   "dependencies": {
     "tmp-sync": "*",
     "sqlite3": "*",
-    "mailparser": "*"
+    "mailparser": "*",
+    "google-caja": "*",
+    "concat-stream": "*"
   },
   "devDependencies": {
-    "standard": "*"
+    "standard": "*",
+    "tape": "*"
   },
   "scripts": {
-    "test": "standard"
+    "test": "standard && node test.js",
+    "format": "standard --format"
   }
 }

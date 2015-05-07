@@ -73,7 +73,7 @@ function demoQueryEmails (repo) {
   repo.search('to:root@eruditorom.org', printResults)
   repo.search('to:root', printResults)
   // Search for an exact string
-  repo.search('\"remember, remember\"', printResults)
+  repo.search('"remember, remember"', printResults)
 
   // TODO: Get the inbox
   repo.search('label:\\scramble\\inbox', printResults)

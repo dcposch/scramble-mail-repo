@@ -4,10 +4,11 @@ var crypto = require('crypto')
 var path = require('path')
 var sqlite3 = require('sqlite3').verbose()
 var MailParser = require('mailparser').MailParser
+var concat = require('concat-stream')
+var utils = require('./utils')
 
-module.exports = function (dir) {
-  var dbFilename = path.join(dir, 'index.sqlite')
-  console.log('Opening ' + dbFilename)
+module.exports = function (mailDir) {
+  var dbFilename = path.join(mailDir, 'index.sqlite')
   var db = new sqlite3.Database(dbFilename)
   initDatabase()
 
@@ -19,24 +20,75 @@ module.exports = function (dir) {
     db.serialize(function () {
       db.exec(schemaSql, function (err) {
         if (err === null) {
-          console.log('Created the email index sqlite DB successfully')
+          console.log('scramble-mail-repo: opened email DB ' + dbFilename)
         } else {
-          console.error('Error creating sqlite DB ' + dbFilename, err)
+          console.error('scramble-mail-repo: error creating sqlite DB ' + dbFilename, err)
         }
       })
     })
   }
 
   /**
-   * Returns a non-cryptographically-strong random string.
-   * Length n base64 chars, so 6n bits.
+   * Generates a unique identifier.
+   * (Gets 40 hex chars = 160 bits)
    */
-  function pseudoRandomBase64 (numChars) {
-    var buf = crypto.pseudoRandomBytes(numChars)
-    return buf.toString('base64').substring(0, numChars)
+  function generateUID () {
+    return pseudoRandomHex(40)
   }
 
-  function saveMailObj (mailObj, cb) {
+  /**
+   * Returns a non-cryptographically-strong random hex string.
+   */
+  function pseudoRandomHex (numChars) {
+    var buf = crypto.pseudoRandomBytes(numChars)
+    return buf.toString('hex').substring(0, numChars)
+  }
+
+  /**
+   * Uses the message's headers to figure out which thread it belongs to.
+   * It tries In-Reply-To, then References.
+   * Returns a thread ID present in the MessageThread table, possibly newly created.
+   *
+   * TODO: support threading by subject only, like Gmail?
+   */
+  function findOrCreateThread (scrambleMailId, mailObj, cb) {
+    var msgId = mailObj.headers['message-id']
+    var messageIds = [scrambleMailId].concat([msgId], mailObj.inReplyTo, mailObj.references)
+
+    // Find or create in the MessageThread table
+    db.all('select scrambleThreadId from MessageThread where messageId in (' +
+        utils.nQuestionMarks(messageIds.length) + ')', messageIds, function (err, rows) {
+      if (err) {
+        return cb(err, null)
+      }
+      if (rows.length > 0) {
+        // Found one or more existing thread IDs that match.  Use the latest one.
+        return cb(null, rows[rows.length - 1].threadId)
+      }
+      // Create a new thread ID
+      var threadId = generateUID()
+      var queryArgs = []
+      messageIds.forEach(function (messageId) {
+        queryArgs.push(threadId, messageId)
+      })
+      db.run('insert or ignore into MessageThread (scrambleThreadId, messageId) values ' +
+          utils.nTimes('(?, ?)', messageIds.length).join(','), queryArgs, function (err) {
+        cb(err, threadId)
+      })
+    })
+  }
+
+  function saveMailObj (scrambleMailId, mailObj, cb) {
+    findOrCreateThread(scrambleMailId, mailObj, function (err, scrambleThreadId) {
+      if (err) {
+        console.warn("Couldn't find or create an email thread for message " + scrambleMailId, err)
+        return
+      }
+      saveMailObjInThread(scrambleMailId, scrambleThreadId, mailObj, cb)
+    })
+  }
+
+  function saveMailObjInThread (scrambleMailId, scrambleThreadId, mailObj, cb) {
     var errs = []
     var numDone = 0
     var numQueries = 3
@@ -49,11 +101,8 @@ module.exports = function (dir) {
       }
     }
 
-    // Insert Message
-    var messageId = mailObj.headers['message-id'] || null
-    var scrambleMailId = messageId || pseudoRandomBase64(40)
-    var scrambleThreadId = 'dummy-thread-id' // TODO: threading
     var timestamp = new Date().toISOString()
+    var messageId = mailObj.headers['message-id']
     var fromAddress = mailObj.headers['from']
     var toAddress = mailObj.headers['to']
     var ccAddress = mailObj.headers['cc']
@@ -61,25 +110,25 @@ module.exports = function (dir) {
     var subject = mailObj.subject
     var snippet = mailObj.text
     db.run('insert or ignore into Message (scrambleMailId, scrambleThreadId, timestamp, messageId, ' +
-      'fromAddress, toAddress, ccAddress, bccAddress, subject, snippet) ' +
-      'values (?,?,?,?,?,?,?,?,?,?)',
+    'fromAddress, toAddress, ccAddress, bccAddress, subject, snippet) ' +
+    'values (?,?,?,?,?,?,?,?,?,?)',
       scrambleMailId, scrambleThreadId, timestamp, messageId,
       fromAddress, toAddress, ccAddress, bccAddress, subject, snippet, subCallback)
 
     // Index for full-text search
     var searchBody = subject + '\n\n' + mailObj.text
     db.run('insert into MessageSearch (scrambleMailId, subject, fromAddress, toAddress, searchBody) ' +
-      'values (?,?,?,?,?)',
+    'values (?,?,?,?,?)',
       scrambleMailId, subject, fromAddress, toAddress, searchBody, subCallback)
 
     // Update Contact
     var contacts = [mailObj.from, mailObj.to, mailObj.cc, mailObj.bcc].reduce(function (a, b) {
-        return b ? a.concat(b) : a
-      }, [])
+      return b ? a.concat(b) : a
+    }, [])
     saveContacts(contacts, subCallback)
 
-    // TODO: PGP decryption
-    // TODO: Update MessageLabel
+  // TODO: PGP decryption
+  // TODO: Update MessageLabel
   }
 
   /**
@@ -125,24 +174,53 @@ module.exports = function (dir) {
    * the email has been successfully written to disk.
    **/
   this.saveRawEmail = function (email, cb) {
+    // Read stream to string, if necessary
+    if (email instanceof stream.Readable) {
+      var concatStream = concat(function (emailStr) {
+        saveRawEmailString(emailStr, cb)
+      })
+      email.pipe(concatStream)
+    } else if (typeof email === 'string') {
+      saveRawEmailString(email, cb)
+    } else {
+      throw new Error('Expected readable stream or string, got ' + email)
+    }
+  }
+
+  /**
+   * See saveRawEmail
+   */
+  function saveRawEmailString (emailStr, cb) {
+    // Parse and write to index
     var mailparser = new MailParser()
     mailparser.on('headers', function (headers) {
       // TODO: handle headers and body separately?
     })
     mailparser.on('error', function (err) {
-      console.warn('Mail parser error', err)
+      console.warn('scramble-mail-repo: error parsing email', err)
       cb(err, null)
     })
     mailparser.on('end', function (mailObj) {
-      saveMailObj(mailObj, cb)
-    })
+      var scrambleMailId = generateUID()
 
-    if (email instanceof stream.Readable) {
-      email.pipe(mailparser)
-    } else {
-      mailparser.write(email)
-      mailparser.end()
-    }
+      saveMailToFile(scrambleMailId, emailStr)
+      saveMailObj(scrambleMailId, mailObj, cb)
+    })
+    mailparser.write(emailStr)
+    mailparser.end()
+  }
+
+  /**
+   * Saves a text file with the whole RFC2722 message.
+   * The name is <scramble mail id>.txt
+   */
+  function saveMailToFile (scrambleMailId, emailStr) {
+    var fileName = getMailFileName(scrambleMailId)
+    fs.writeFileSync(fileName, emailStr)
+  }
+
+  function getMailFileName (scrambleMailId) {
+    return path.join(mailDir, scrambleMailId + '.txt')
   }
 
   /**
@@ -150,6 +228,7 @@ module.exports = function (dir) {
    *
    * The limit and offset args are optional.
    * The callback takes (err, array of email objs).
+   * If err is non-null, the array will be empty.
    */
   this.search = function (query, limit, offset, cb) {
     if (arguments.length === 2) {
@@ -157,18 +236,25 @@ module.exports = function (dir) {
       limit = 10
       offset = 0
     }
-    console.log('scramble-mail-repo searching \'%s\' offset %d limit %d', query, offset, limit)
-    if (query === '') {
-      cb(null, null)
+    console.log("scramble-mail-repo: searching '%s' offset %d limit %d", query, offset, limit)
+    if (query !== '') {
+      db.all('select * from Message order by timestamp desc limit ? offset ?',
+        limit, offset, messageRowsCallback.bind(null, cb))
     } else {
-      db.all('select scrambleMailId, fromAddress, toAddress, subject, snippet(MessageSearch) as snippet ' +
-          'from MessageSearch where searchBody match ? limit ? offset ?',
-          query, limit, offset, function (err, results) {
+      db.all('select scrambleMailId, fromAddress, toAddress, subject, ' +
+        'snippet(MessageSearch) as snippet ' +
+        'from MessageSearch ' +
+        'where searchBody match ? ' +
+        'limit ? offset ?',
+      query, limit, offset, function (err, msgSearchRows) {
         if (err) {
-          return cb(err, null)
+          console.warn('scramble-mail-repo: search query error', err)
+          return cb(err, [])
         }
-        var mailIds = results.map(function (x) { return x.scrambleMailId })
-        db.all('select * from Message where scrambleMailId in (\'' + mailIds.join('\',\'') + '\')', cb)
+        var mailIds = msgSearchRows.map(function (x) { return x.scrambleMailId })
+        db.all('select * from Message ' +
+          "where scrambleMailId in ('" + mailIds.join("','") + "')",
+          messageRowsCallback.bind(null, cb))
       })
     }
   }
@@ -183,7 +269,7 @@ module.exports = function (dir) {
    * Exactly one of err or message will be null.
    */
   this.getMessage = function (mailId, cb) {
-    db.get('select * from Message where scrambleMailId=?', mailId, function (err, row) {
+    /*db.get('select * from Message where scrambleMailId=?', mailId, function (err, row) {
       if (err) {
         cb(err, null)
       }
@@ -191,6 +277,28 @@ module.exports = function (dir) {
         cb('Couldn\'t find mail ID ' + mailId, null)
       }
       cb(null, row)
-    })
+    })*/
+
+    var emailStr = fs.readFileSync(getMailFileName(mailId), {'encoding': 'ascii'})
+    return {
+      from: 'TEMP',
+      to: 'TEMP',
+      subject: 'TEMP',
+      body: emailStr,
+      sanitizedHtmlBody: '<pre>' + emailStr + '</pre>'
+    }
   }
+}
+
+/**
+ * Receives message rows from the DB,
+ * sends back messages to client.
+ */
+function messageRowsCallback (cb, err, rows) {
+  if (err) {
+    console.warn('scramble-mail-repo: query error', err)
+    return cb(err, [])
+  }
+  console.log('scramble-mail-repo: found %d messages', rows.length)
+  return cb(null, rows)
 }
