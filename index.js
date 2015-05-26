@@ -124,11 +124,13 @@ module.exports = function (mailDir) {
     // Update Contact
     var contacts = [mailObj.from, mailObj.to, mailObj.cc, mailObj.bcc].reduce(function (a, b) {
       return b ? a.concat(b) : a
-    }, [])
+    }, []).filter(function (contact) {
+      return contact.address && contact.name
+    })
     saveContacts(contacts, subCallback)
 
-  // TODO: PGP decryption
-  // TODO: Update MessageLabel
+    // TODO: PGP decryption
+    // TODO: Update MessageLabel
   }
 
   /**
@@ -237,7 +239,7 @@ module.exports = function (mailDir) {
       offset = 0
     }
     console.log("scramble-mail-repo: searching '%s' offset %d limit %d", query, offset, limit)
-    if (query !== '') {
+    if (query === '') {
       db.all('select * from Message order by timestamp desc limit ? offset ?',
         limit, offset, messageRowsCallback.bind(null, cb))
     } else {
@@ -279,14 +281,16 @@ module.exports = function (mailDir) {
       cb(null, row)
     })*/
 
-    var emailStr = fs.readFileSync(getMailFileName(mailId), {'encoding': 'ascii'})
-    return {
+    var filename = getMailFileName(mailId)
+    var emailStr = fs.readFileSync(filename, {'encoding': 'ascii'})
+    // TODO: parse emailStr
+    cb(null, {
       from: 'TEMP',
       to: 'TEMP',
       subject: 'TEMP',
       body: emailStr,
       sanitizedHtmlBody: '<pre>' + emailStr + '</pre>'
-    }
+    })
   }
 }
 
