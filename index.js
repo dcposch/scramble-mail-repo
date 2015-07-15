@@ -238,7 +238,8 @@ module.exports = function (mailDir) {
       limit = 10
       offset = 0
     }
-    console.log("scramble-mail-repo: searching '%s' offset %d limit %d", query, offset, limit)
+    console.log("scramble-mail-repo: searching messages. query '%s' offset %d limit %d",
+        query, offset, limit)
     if (query === '') {
       db.all('select * from Message order by timestamp desc limit ? offset ?',
         limit, offset, messageRowsCallback.bind(null, cb))
@@ -261,8 +262,70 @@ module.exports = function (mailDir) {
     }
   }
 
+  this.searchThreads = function (query, limit, offset, cb) {
+    if (arguments.length === 2) {
+      cb = limit
+      limit = 10
+      offset = 0
+    }
+    console.log("scramble-mail-repo: searching threads. query '%s' offset %d limit %d",
+        query, offset, limit)
+    if (query === '') {
+      db.all('select ' +
+          '  scrambleThreadId, ' +
+          '  group_concat(scrambleMailId) as scrambleMailIds, ' +
+          '  min(subject) as subject, ' +
+          '  max(timestamp) as latestTimestamp, ' +
+          '  min(snippet) as snippet ' +
+          'from Message ' +
+          'group by scrambleThreadId ' +
+          'order by timestamp desc limit ? offset ?',
+        limit, offset, threadRowsCallback.bind(null, cb))
+    } else {
+      db.all('select ' +
+          '  m.scrambleThreadId, ' +
+          '  group_concat(ms.scrambleMailId) as scrambleMailIds, ' +
+          '  min(subject) as subject, ' +
+          '  max(m.timestamp) as latestTimestamp, ' +
+          '  max(snip) as snippet ' +
+          'from Message m ' +
+          'inner join (' +
+          '  select scrambleMailId, snippet(MessageSearch) as snip ' +
+          '  from MessageSearch where searchBody match ? ' +
+          '  limit ? ' +
+          ') ms ' +
+          'on m.scrambleMailId=ms.scrambleMailId ' +
+          'group by m.scrambleThreadId ' +
+          'limit ? offset ?',
+        query, (limit + offset) * 10, limit, offset,
+        threadRowsCallback.bind(null, cb))
+    }
+  }
+
   this.getThread = function (threadId, cb) {
-    db.all('select * from Message where scrambleThreadId=?', threadId, cb)
+    db.all('select * from Message where scrambleThreadId=?', threadId, function (err, rows) {
+      var numFinished = 0, errs = [], sanitizedMessages = []
+      if (err) {
+        errs.push(err)
+      }
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i]
+        this.getMessage(row.scrambleMailId, function (err, sanitizedMessage) {
+          if (err !== null) {
+            errs.push(err)
+          } else {
+            sanitizedMessages.push(sanitizedMessage)
+          }
+          if (++numFinished === rows.length) {
+            var thread = {
+              scrambleThreadId: threadId,
+              sanitizedMessages: sanitizedMessages
+            }
+            cb(errs[0] || null, thread)
+          }
+        })
+      }
+    }.bind(this))
   }
 
   /**
@@ -271,26 +334,30 @@ module.exports = function (mailDir) {
    * Exactly one of err or message will be null.
    */
   this.getMessage = function (mailId, cb) {
-    /*db.get('select * from Message where scrambleMailId=?', mailId, function (err, row) {
-      if (err) {
-        cb(err, null)
-      }
-      if (!row) {
-        cb('Couldn\'t find mail ID ' + mailId, null)
-      }
-      cb(null, row)
-    })*/
-
     var filename = getMailFileName(mailId)
     var emailStr = fs.readFileSync(filename, {'encoding': 'ascii'})
-    // TODO: parse emailStr
-    cb(null, {
-      from: 'TEMP',
-      to: 'TEMP',
-      subject: 'TEMP',
-      body: emailStr,
-      sanitizedHtmlBody: '<pre>' + emailStr + '</pre>'
+
+    var mailparser = new MailParser()
+    mailparser.on('error', function (err) {
+      console.warn('scramble-mail-repo: error parsing email', err)
+      cb(err, null)
     })
+    mailparser.on('end', function (mailObj) {
+      // TODO: run thru CAJA to sanitize
+      cb(null, {
+        scrambleMailId: mailId,
+        rawEmail: emailStr,
+        from: mailObj.from,
+        to: mailObj.to,
+        cc: mailObj.cc,
+        bcc: mailObj.bcc,
+        subject: mailObj.subject,
+        textBody: mailObj.text,
+        sanitizedHtmlBody: mailObj.html
+      })
+    })
+    mailparser.write(emailStr)
+    mailparser.end()
   }
 }
 
@@ -305,4 +372,33 @@ function messageRowsCallback (cb, err, rows) {
   }
   console.log('scramble-mail-repo: found %d messages', rows.length)
   return cb(null, rows)
+}
+
+/**
+ * Receives thread rows from the DB (ie, from a GROUP BY scrambleThreadId query),
+ * sends back thread objects to the client.
+ */
+function threadRowsCallback (cb, err, rows) {
+  if (err) {
+    console.warn('scramble-mail-repo: query error', err)
+    return cb(err, [])
+  }
+  console.log('scramble-mail-repo: found %d threads', rows.length)
+  var threads = rows.map(function (row) {
+    // Scramble mail IDs are guaranteed not to contain commas, so simply
+    // splitting the result of the Sqlite GROUP_CONCAT clause works
+    // Furthermore, scrambleMailIds is guaranteed not to be empty.
+    var scrambleMailIds = row.scrambleMailIds.split(',')
+    // TODO: even though Sqlite3's FTS module should return clean HTML
+    // from the SNIPPET function, we should still run this through CAJA
+    // whitelisting only the <b> tag.
+    var sanitizedSnippetHTML = row.snippet
+    return {
+      scrambleThreadId: row.scrambleThreadId,
+      scrambleMailIds: scrambleMailIds,
+      latestTimestamp: row.latestTimestamp,
+      sanitizedSnippetHTML: sanitizedSnippetHTML
+    }
+  })
+  return cb(null, threads)
 }

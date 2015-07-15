@@ -5,7 +5,7 @@
 create table if not exists Message (
   scrambleMailId text not null,
   scrambleThreadId text not null,
-  timestamp text not null, 
+  timestamp text not null,
   messageId text,
   fromAddress text not null,
   toAddress text not null,
@@ -17,6 +17,18 @@ create table if not exists Message (
 create unique index if not exists IxMessageMailId on Message(scrambleMailId);
 create index if not exists IxMessageThreadId on Message(scrambleThreadId);
 create unique index if not exists IxMessageMessageId on Message(messageId);
+
+--
+-- Threads don't get their own table
+-- Instead, query threads using GROUP BY scrambleThreadId
+--
+-- create table if not exists Thread (
+--   scrambleThreadId text not null,
+--   latestTimestamp text not null,
+--   snippet text not null
+-- );
+-- create unique index if not exists IxThreadId on Thread(scrambleThreadId);
+--
 
 --
 -- Many-to-one map from email Message-ID values to thread IDs
