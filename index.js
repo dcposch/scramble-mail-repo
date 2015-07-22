@@ -262,6 +262,13 @@ module.exports = function (mailDir) {
     }
   }
 
+  /**
+   * Email full-text search. See README for query syntax.
+   *
+   * The limit and offset args are optional.
+   * The callback takes (err, array of thread objs).
+   * If err is non-null, the array will be empty.
+   */
   this.searchThreads = function (query, limit, offset, cb) {
     if (arguments.length === 2) {
       cb = limit
@@ -274,6 +281,7 @@ module.exports = function (mailDir) {
       db.all('select ' +
           '  scrambleThreadId, ' +
           '  group_concat(scrambleMailId) as scrambleMailIds, ' +
+          '  group_concat(replace(fromAddress,","," ")) as fromAddresses, ' +
           '  min(subject) as subject, ' +
           '  max(timestamp) as latestTimestamp, ' +
           '  min(snippet) as snippet ' +
@@ -285,6 +293,7 @@ module.exports = function (mailDir) {
       db.all('select ' +
           '  m.scrambleThreadId, ' +
           '  group_concat(ms.scrambleMailId) as scrambleMailIds, ' +
+          '  group_concat(replace(fromAddress,","," ")) as fromAddresses, ' +
           '  min(subject) as subject, ' +
           '  max(m.timestamp) as latestTimestamp, ' +
           '  max(snip) as snippet ' +
@@ -344,6 +353,7 @@ module.exports = function (mailDir) {
     })
     mailparser.on('end', function (mailObj) {
       // TODO: run thru CAJA to sanitize
+      var sanitizedHtmlBody = mailObj.html || mailObj.text.replace(/\n/g, '<br/>')
       cb(null, {
         scrambleMailId: mailId,
         rawEmail: emailStr,
@@ -353,7 +363,7 @@ module.exports = function (mailDir) {
         bcc: mailObj.bcc,
         subject: mailObj.subject,
         textBody: mailObj.text,
-        sanitizedHtmlBody: mailObj.html
+        sanitizedHtmlBody: sanitizedHtmlBody
       })
     })
     mailparser.write(emailStr)
@@ -389,6 +399,8 @@ function threadRowsCallback (cb, err, rows) {
     // splitting the result of the Sqlite GROUP_CONCAT clause works
     // Furthermore, scrambleMailIds is guaranteed not to be empty.
     var scrambleMailIds = row.scrambleMailIds.split(',')
+    // Same here
+    var fromAddresses = row.fromAddresses.split(',')
     // TODO: even though Sqlite3's FTS module should return clean HTML
     // from the SNIPPET function, we should still run this through CAJA
     // whitelisting only the <b> tag.
@@ -396,6 +408,8 @@ function threadRowsCallback (cb, err, rows) {
     return {
       scrambleThreadId: row.scrambleThreadId,
       scrambleMailIds: scrambleMailIds,
+      subject: row.subject,
+      fromAddresses: fromAddresses,
       latestTimestamp: row.latestTimestamp,
       sanitizedSnippetHTML: sanitizedSnippetHTML
     }
