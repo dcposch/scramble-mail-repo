@@ -7,7 +7,16 @@ var MailParser = require('mailparser').MailParser
 var concat = require('concat-stream')
 var utils = require('./utils')
 
+/**
+ * Usage:
+ *
+ * var ScrambleMailRepo = require('scramble-mail-repo')
+ * var repo = new ScrambleMailRepo('~/.app/mail-folder')
+ * repo.search('climbing trip', function(err, results) { ... })
+ */
 module.exports = function (mailDir) {
+
+  // When a mail-repo instance is created, the first thing we do is connect to SQLite
   var dbFilename = path.join(mailDir, 'index.sqlite')
   var db = new sqlite3.Database(dbFilename)
   initDatabase()
@@ -128,9 +137,6 @@ module.exports = function (mailDir) {
       return contact.address && contact.name
     })
     saveContacts(contacts, subCallback)
-
-    // TODO: PGP decryption
-    // TODO: Update MessageLabel
   }
 
   /**
@@ -169,8 +175,7 @@ module.exports = function (mailDir) {
    * Saves a raw RFC2822 email.
    *
    * The first argument can be either a string or a stream.
-   * The stream should be ASCII encoded. (Remember that ASCII is a strict
-   * subset of UTF-8, so UTF-8 works too. All code points sholuld be <= 127.)
+   * The stream should be ASCII encoded.
    *
    * The second argument is a callback(err, mailObj). It is not called until
    * the email has been successfully written to disk.
